@@ -2,7 +2,10 @@ name: tanzanite kernel build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - fix/boot
+      - 'fix/**'
     paths:
       - 'arch/**'
       - 'drivers/**'
@@ -27,15 +30,27 @@ on:
       - 'Kconfig'
       - '.github/workflows/build.yml'
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout and build'
+        required: true
+        default: 'fix/boot'
+      defconfig:
+        description: 'Defconfig name'
+        required: true
+        default: 'tanzanite_defconfig'
 
 jobs:
   build:
+    name: Build Tanzanite Kernel (${{ github.event.inputs.branch || github.ref_name }})
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
-      - name: Install deps
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison flex libssl-dev libelf-dev \
@@ -46,7 +61,7 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang
 
-      - name: Build tanzanite_defconfig
+      - name: Configure kernel
         run: |
           export ARCH=arm64
           export LLVM=1
@@ -54,9 +69,11 @@ jobs:
           export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
-          make tanzanite_defconfig
+          DEFCONFIG="${{ github.event.inputs.defconfig || 'tanzanite_defconfig' }}"
+          echo "Using defconfig: $DEFCONFIG"
+          make "$DEFCONFIG"
 
-      - name: Build Image + modules
+      - name: Build Image, Image.gz and modules
         run: |
           export ARCH=arm64
           export LLVM=1
@@ -76,11 +93,32 @@ jobs:
           cp -v build.log out/ 2>/dev/null || true
           cp -v .config out/tanzanite_built.config 2>/dev/null || true
           ls -lh out/
+          REF_RAW="${{ github.event.inputs.branch || github.ref_name }}"
+          SAFE_REF=$(echo "$REF_RAW" | tr '/' '-' | tr ' ' '-')
+          echo "ARTIFACT_NAME=tanzanite-build-${SAFE_REF}" >> $GITHUB_ENV
 
-      - name: Upload
+      - name: Generate build summary
+        if: always()
+        run: |
+          echo "### Tanzanite Kernel Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ref / Branch**: \`${{ github.event.inputs.branch || github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ -f "out/Image" ]; then
+            echo "- **Image Size**: \`$(ls -lh out/Image | awk '{print $5}')\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Image**: ❌ Not built" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f "out/Image.gz" ]; then
+            echo "- **Image.gz Size**: \`$(ls -lh out/Image.gz | awk '{print $5}')\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          MODULE_COUNT=$(find out/ -name '*.ko' | wc -l)
+          echo "- **Modules Collected**: \`$MODULE_COUNT\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tanzanite-build
+          name: ${{ env.ARTIFACT_NAME || 'tanzanite-build' }}
           path: out/
           retention-days: 7
+
