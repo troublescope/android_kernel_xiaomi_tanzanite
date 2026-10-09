@@ -83,8 +83,17 @@
 
 #ifdef CONFIG_64BIT
 #define IF_HAVE_PG_ARCH_2(flag,string) ,{1UL << flag, string}
+
+/* With CONFIG_NUMA_BALANCING LAST_CPUPID_WIDTH consumes OEM-used page flags */
+#ifdef CONFIG_NUMA_BALANCING
+#define IF_HAVE_PG_OEM_RESERVED(flag,string)
+#else
+#define IF_HAVE_PG_OEM_RESERVED(flag,string) ,{1UL << flag, string}
+#endif
+
 #else
 #define IF_HAVE_PG_ARCH_2(flag,string)
+#define IF_HAVE_PG_OEM_RESERVED(flag,string)
 #endif
 
 #ifdef CONFIG_KASAN_HW_TAGS
