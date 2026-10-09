@@ -1,34 +1,6 @@
 name: tanzanite kernel build
 
 on:
-  push:
-    branches:
-      - main
-      - fix/boot
-      - 'fix/**'
-    paths:
-      - 'arch/**'
-      - 'drivers/**'
-      - 'sound/**'
-      - 'kernel/**'
-      - 'mm/**'
-      - 'net/**'
-      - 'fs/**'
-      - 'crypto/**'
-      - 'block/**'
-      - 'init/**'
-      - 'ipc/**'
-      - 'lib/**'
-      - 'security/**'
-      - 'scripts/**'
-      - 'tools/**'
-      - 'include/**'
-      - 'usr/**'
-      - 'virt/**'
-      - 'Makefile'
-      - 'Kbuild'
-      - 'Kconfig'
-      - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:
       branch:
