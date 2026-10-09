@@ -57,6 +57,15 @@ jobs:
             python3-pip cpio lz4 git ccache \
             gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
+      - name: Setup swap space
+        run: |
+          sudo swapoff -a || true
+          sudo fallocate -l 10G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=10240
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
       - name: Fetch Proton Clang
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang
@@ -81,6 +90,7 @@ jobs:
           export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+          set -o pipefail
           make -j$(nproc) Image Image.gz modules 2>&1 | tee build.log
 
       - name: Collect artifacts
